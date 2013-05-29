@@ -12,13 +12,14 @@ if __name__ == '__main__':
     inFile = sys.argv[1]
     outFile = sys.argv[2]
     inputContig = next(iter(FastaReader(inFile))).sequence
-    mutPositions = xrange(250, len(inputContig), 500)
+    mutPositions = xrange(249, len(inputContig), 500)
     mutContigIO = StringIO()
     lastPos = 0
     for pos in mutPositions:
         mutContigIO.write(inputContig[lastPos:pos])
         mutContigIO.write(mutatedBase(inputContig[pos]))
         lastPos = pos + 1
+    mutContigIO.write(inputContig[lastPos:])
     mutContig = mutContigIO.getvalue()
 
     fw = FastaWriter(outFile)
