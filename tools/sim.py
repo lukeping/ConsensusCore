@@ -5,6 +5,24 @@ import ConsensusCore as cc
 import numpy as np
 import numpy.random as nr
 
+def printAln(ga):
+    COLUMNS = 60
+    acc  = ga.Accuracy()
+    print "Acc:", acc
+    xc = ga.Transcript()\
+           .replace("M", " ")\
+           .replace("I", "+")\
+           .replace("D", "-")
+    val = ""
+    for i in xrange(0, len(xc), COLUMNS):
+        val += "\n"
+        val += "  " + ga.Target()  [i:i+COLUMNS] + "\n"
+        val += "  " + xc  [i:i+COLUMNS] + "\n"
+        val += "  " + ga.Query() [i:i+COLUMNS] + "\n"
+        val += "\n"
+    print val
+
+
 def simSmrtBellReads(ccRng, seqParams, insert, readLength):
     fwdTpl = insert
     revTpl = cc.ReverseComplement(insert)
@@ -17,8 +35,8 @@ def simSmrtBellReads(ccRng, seqParams, insert, readLength):
             tpl = revTpl
         simRead = cc.SimulateRead(seqParams, tpl, ccRng)
 
-        # acc = cc.Align(tpl, simRead).Accuracy()
-        # print "Acc: ", acc
+        ga = cc.Align(tpl, simRead)
+        #printAln(ga)
 
         reads.append(simRead)
 
@@ -62,19 +80,36 @@ def simExperiment(seed, seqParams,
         readLength = meanReadLength
         insertSize = meanInsertSize
 
-        tStart, tEnd, strand, insert = sampleInsertFromChromosome(chromosome, insertSize, circular)
+        tStart, tEnd, strand, insert = sampleInsertFromChromosome(chromosome,
+                                                                  insertSize,
+                                                                  circular)
         if len(insert) < 500: continue
         smrtBellReads = simSmrtBellReads(ccRng, seqParams, insert, readLength)
 
         for subreadId, subread in enumerate(smrtBellReads):
-            yield moleculeId, subreadId, (strand + subreadId) % 2, chromosomeId, tStart, tEnd, subread
+            yield moleculeId, subreadId, (strand + subreadId) % 2, \
+                chromosomeId, tStart, tEnd, subread
 
 
 if __name__ == '__main__':
-    fw = FastaWriter("/tmp/out.fa")
-    #genome = [r.sequence for r in FastaReader("~/Data/lambdaNEB.fa")]
-    genome = [r.sequence for r in FastaReader("~/Data/Diploid/diploidLambda.fa")]
+    fw     = FastaWriter("/tmp/reads.fa")
+    csvOut = open("/tmp/reads.csv", "w")
+    csvOut.write("MoleculeId,SubReadId,Chromosome,tStart,tEnd,Strand\n")
+
+    genome = [r.sequence for r in FastaReader("~/Data/lambdaNEB.fa")]
+    #genome = [r.sequence for r in FastaReader("~/Data/Diploid/diploidLambda.fa")]
     seqParams = cc.SequencingParameters.C2()
-    for item in simExperiment(42, seqParams, 4000, 1000, genome, 50000, False):
-        fw.writeRecord("r@" + "_".join(map(str, item[:-1])),
-                       item[-1])
+    for readId, item in enumerate(simExperiment(42, seqParams,
+                                                4000, 1000, genome, 50000, False)):
+        moleculeId, subreadId, strand, chromosomeId, tStart, tEnd, subread = item
+
+        rStart = subreadId
+        rEnd   = subreadId
+
+        readName = "mSimulator/%d" % moleculeId
+
+        fw.writeRecord(readName, subread)
+
+        csvOut.write("%d,%d,%d,%d,%d,%d" %
+                     (moleculeId, subreadId, chromosomeId, tStart, tEnd, strand))
+        csvOut.write("\n")
